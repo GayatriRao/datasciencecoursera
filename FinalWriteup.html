@@ -63,39 +63,34 @@ img {
 
 <p><strong>Final project write up</strong></p>
 <p>This write up describes the analysis I carried out to test the data collected from 6 participants as outlined in the study described at <a href="http://groupware.les.inf.puc-rio.br/har">link</a>. Measurements from accelormeters attached to the beld, forearm, arm and dumbell of these participants were recorded while they performed barbell lifts correctly and incorrectly.</p>
-<p>I read the paper the authors of the study wrote in which they described the feature selection and the model they used. I followed their lead and used a random forest.<br />Variables with NA were excluded and additional feature selection was carried out using nearZeroVar in the caret package. Variables that were TRUE for ‘nzv’ were excluded from the analysis. Also excluded were variables that carried time information.</p>
-<p>I cross validated using a 75/25 train-test split in the data. There is a way to do this automatically but I chose to do it by hand. I used 75% of the training data to fit a random forest model which I then used the remaining 25% of the training data to test.</p>
-<p>I also ran a naive Bayes model on the same 75-25 split training data to check which model performed better.</p>
+<p>I read the paper the authors of the study wrote in which they described the feature selection and the model they used. I followed their lead and used a random forest, though feature selection was done based on the test variables. This is described below.</p>
+<p>Only the predictors available in the test data were retained in the training model. Variables with NA were excluded and additional feature selection was carried out using nearZeroVar in the caret package. Variables that were TRUE for ‘nzv’ were excluded from the analysis. The variable ‘new_window’ was also excluded because it is present in one dataset but not the other.</p>
+<p>Cross-validation was done using bootstrap resampling within the train function. I suspect this overfit the data but changing it to boot632 and oob didn’t seem to help either.</p>
 <pre class="{r}"><code># final project
-library(AppliedPredictiveModeling)
-library(AppliedPredictiveModeling)
-library(dplyr)
-library(caret)
-
-set.seed(3433)
-
-## replace all div/0 with NA so the rest of this works. use file pml-training_NA.csv, doesn't work. 
-
 train.dat = na.omit(read.csv(&quot;/Users/raog/Documents/PredictionAndMachineLearning/pml-training.csv&quot;, header = TRUE))
-test.dat = read.csv(&quot;/Users/raog/Documents/PredictionAndMachineLearning/pml-testing.csv&quot;, header = TRUE)
+test.dat = read.csv(&quot;/Users/raog/Documents/PredictionAndMachineLearning/pml-testing2.csv&quot;, header = TRUE)  #NA excluded
 
-var = nearZeroVar(train.dat, saveMetrics=TRUE)
+##first only include the variables that are available in test:
+testvars &lt;- names(train.dat) %in% names(test.dat)
+testvars[[length(testvars)]] = TRUE
+training &lt;- train.dat[testvars]
+ 
+var = nearZeroVar(training, saveMetrics=TRUE)
 var
 # remove all variables with nzv
-myvars &lt;- names(train.dat) %in% c(&quot;raw_timestamp_part_1&quot;,&quot;raw_timestamp_part_2&quot;,&quot;cvtd_timestamp&quot;,&quot;new_window&quot;, 
-                                  &quot;kurtosis_yaw_belt&quot;, &quot;skewness_yaw_belt&quot;, &quot;kurtosis_yaw_dumbbell&quot;,&quot;skewness_yaw_dumbbell&quot;, 
-                               &quot;kurtosis_yaw_forearm&quot;, &quot;skewness_yaw_forearm&quot;, &quot;amplitude_yaw_dumbbell&quot;,&quot;amplitude_yaw_belt&quot;, 
-                               &quot;amplitude_yaw_forearm&quot;)
+myvars &lt;- names(training) %in% c(&quot;new_window&quot;)
 
-training &lt;- train.dat[!myvars]
-testing &lt;- test.dat[!myvars]
+train &lt;- training[!myvars]
+test &lt;- test.dat[!myvars]
 
-control &lt;- trainControl(method=&quot;boot&quot;, number=10, repeats=3)
-rfmodel = train(classe~., data= training, method =&quot;rf&quot;, prox = TRUE, trControl=control, tuneGrid = data.frame(.mtry = 1000))
-rf_backup=rfmodel
+train_var = train[-147]
 
-## getting errors on these variable
-prf = predict(rfmodel, newdata=test.dat, na.action = &quot;na.pass&quot;) </code></pre>
+control &lt;- trainControl(method=&quot;boot&quot;)
+modelFitrf = train(train$classe ~ ., method = &quot;rf&quot;, data = train_var,trControl=control)
+modelFitrf
+prf = predict(modelFitrf, newdata=test)
+prf
+ </code></pre>
 
 
 </div>
